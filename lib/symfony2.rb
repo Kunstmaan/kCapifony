@@ -47,34 +47,35 @@ namespace :deploy do
   task :share_childs do
     if shared_children
       shared_children.each do |link|
-        run "mkdir -p #{shared_path}/#{link}"
-        run "if [ -d #{release_path}/#{link} ] ; then rm -rf #{release_path}/#{link}; fi"
-        run "ln -nfs #{shared_path}/#{link} #{release_path}/#{link}"
+        try_sudo "mkdir -p #{shared_path}/#{link}"
+        try_sudo "sh -c 'if [ -d #{release_path}/#{link} ] ; then rm -rf #{release_path}/#{link}; fi'"
+        try_sudo "ln -nfs #{shared_path}/#{link} #{release_path}/#{link}"
       end
     end
     if shared_files
       shared_files.each do |link|
         link_dir = File.dirname("#{shared_path}/#{link}")
-        run "mkdir -p #{link_dir}"
-        run "touch #{shared_path}/#{link}"
-        run "ln -nfs #{shared_path}/#{link} #{release_path}/#{link}"
+        try_sudo "mkdir -p #{link_dir}"
+        try_sudo "touch #{shared_path}/#{link}"
+        try_sudo "ln -nfs #{shared_path}/#{link} #{release_path}/#{link}"
       end
     end
   end
 
   desc "Update latest release source path."
   task :finalize_update, :except => { :no_release => true } do
-    run "chmod -R g+w #{latest_release}" if fetch(:group_writable, true)
-    run "if [ -d #{latest_release}/#{cache_path} ] ; then rm -rf #{latest_release}/#{cache_path}; fi"
-    run "mkdir -p #{latest_release}/#{cache_path} && chmod -R 0777 #{latest_release}/#{cache_path}"
-    run "chmod -R g+w #{latest_release}/#{cache_path}"
+    try_sudo "chmod -R g+w #{latest_release}" if fetch(:group_writable, true)
+    try_sudo "sh -c 'if [ -d #{latest_release}/#{cache_path} ] ; then rm -rf #{latest_release}/#{cache_path}; fi'"
+    try_sudo "mkdir -p #{latest_release}/#{cache_path}"
+    try_sudo "chmod -R 0777 #{latest_release}/#{cache_path}"
+    try_sudo "chmod -R g+w #{latest_release}/#{cache_path}"
 
     share_childs
 
     if fetch(:normalize_asset_timestamps, true)
       stamp = Time.now.utc.strftime("%Y%m%d%H%M.%S")
       asset_paths = asset_children.map { |p| "#{latest_release}/#{p}" }.join(" ")
-      run "find #{asset_paths} -exec touch -t #{stamp} {} ';'; true", :env => { "TZ" => "UTC" }
+      try_sudo "find #{asset_paths} -exec touch -t #{stamp} {} ';'; true", :env => { "TZ" => "UTC" }
     end
   end
 
@@ -88,13 +89,13 @@ namespace :deploy do
   task :testall do
     update_code
     symlink
-    run "cd #{latest_release} && phpunit -c #{app_path} src"
+    try_sudo "sh -c 'cd #{latest_release} && phpunit -c #{app_path} src'"
   end
 
   desc "Migrate Symfony2 Doctrine ORM database."
   task :migrate do
     currentVersion = nil
-    run "cd #{latest_release} && #{php_bin} #{symfony_console} doctrine:migrations:status --env=#{symfony_env_prod}" do |ch, stream, out|
+    try_sudo "sh -c 'cd #{latest_release} && #{php_bin} #{symfony_console} doctrine:migrations:status --env=#{symfony_env_prod}'" do |ch, stream, out|
       if stream == :out and out =~ /Current Version:[^$]+\(([0-9]+)\)/
         currentVersion = Regexp.last_match(1)
       end
@@ -110,12 +111,12 @@ namespace :deploy do
 
     on_rollback {
       if Capistrano::CLI.ui.agree("Do you really want to migrate #{symfony_env_prod}'s database back to version #{currentVersion}? (y/N)")
-        run "cd #{latest_release} && #{php_bin} #{symfony_console} doctrine:migrations:migrate #{currentVersion} --env=#{symfony_env_prod} --no-interaction"
+        try_sudo "sh -c 'cd #{latest_release} && #{php_bin} #{symfony_console} doctrine:migrations:migrate #{currentVersion} --env=#{symfony_env_prod} --no-interaction'"
       end
     }
 
     if Capistrano::CLI.ui.agree("Do you really want to migrate #{symfony_env_prod}'s database? (y/N)")
-      run "cd #{latest_release} && #{php_bin} #{symfony_console} doctrine:migrations:migrate --env=#{symfony_env_prod} --no-interaction"
+      try_sudo "sh -c 'cd #{latest_release} && #{php_bin} #{symfony_console} doctrine:migrations:migrate --env=#{symfony_env_prod} --no-interaction'"
     end
   end
 end
@@ -131,45 +132,45 @@ namespace :symfony do
   namespace :assets do
     desc "Install bundle's assets"
     task :install do
-      run "cd #{latest_release} && #{php_bin} #{symfony_console} assets:install #{web_path} --env=#{symfony_env_prod}"
+      try_sudo "sh -c 'cd #{latest_release} && #{php_bin} #{symfony_console} assets:install #{web_path} --env=#{symfony_env_prod}'"
     end
   end
 
   namespace :assetic do
     desc "Dumps all assets to the filesystem"
     task :dump do
-      run "cd #{latest_release} && #{php_bin} #{symfony_console} assetic:dump #{web_path} --env=#{symfony_env_prod} --no-debug"
+      try_sudo "sh -c '#{latest_release} && #{php_bin} #{symfony_console} assetic:dump #{web_path} --env=#{symfony_env_prod} --no-debug'"
     end
   end
 
   namespace :vendors do
     desc "Runs the bin/vendors script to install the vendors (fast if already installed)"
     task :install do
-      run "cd #{latest_release} && #{php_bin} bin/vendors install"
+      try_sudo "sh -c 'cd #{latest_release} && #{php_bin} bin/vendors install'"
     end
 
     desc "Runs the bin/vendors script to reinstall the vendors"
     task :reinstall do
-      run "cd #{latest_release} && #{php_bin} bin/vendors install --reinstall"
+      try_sudo "sh -c 'cd #{latest_release} && #{php_bin} bin/vendors install --reinstall'"
     end
 
     desc "Runs the bin/vendors script to upgrade the vendors"
     task :upgrade do
-      run "cd #{latest_release} && #{php_bin} bin/vendors update"
+      try_sudo "sh -c '#{latest_release} && #{php_bin} bin/vendors update'"
     end
   end
 
   namespace :cache do
     desc "Clears project cache."
     task :clear do
-      run "cd #{latest_release} && #{php_bin} #{symfony_console} cache:clear --env=#{symfony_env_prod}"
-      run "chmod -R g+w #{latest_release}/#{cache_path}"
+      try_sudo "sh -c 'cd #{latest_release} && #{php_bin} #{symfony_console} cache:clear --env=#{symfony_env_prod}'"
+      try_sudo "chmod -R g+w #{latest_release}/#{cache_path}"
     end
 
     desc "Warms up an empty cache."
     task :warmup do
-      run "cd #{latest_release} && #{php_bin} #{symfony_console} cache:warmup --env=#{symfony_env_prod}"
-      run "chmod -R g+w #{latest_release}/#{cache_path}"
+      try_sudo "sh -c 'cd #{latest_release} && #{php_bin} #{symfony_console} cache:warmup --env=#{symfony_env_prod}'"
+      try_sudo "chmod -R g+w #{latest_release}/#{cache_path}"
     end
   end
 
@@ -177,65 +178,65 @@ namespace :symfony do
     namespace :cache do
       desc "Clear all metadata cache for a entity manager."
       task :clear_metadata do
-        run "cd #{latest_release} && #{php_bin} #{symfony_console} doctrine:cache:clear-metadata --env=#{symfony_env_prod}"
+        try_sudo "sh -c 'cd #{latest_release} && #{php_bin} #{symfony_console} doctrine:cache:clear-metadata --env=#{symfony_env_prod}'"
       end
 
       desc "Clear all query cache for a entity manager."
       task :clear_query do
-        run "cd #{latest_release} && #{php_bin} #{symfony_console} doctrine:cache:clear-query --env=#{symfony_env_prod}"
+        try_sudo "sh -c 'cd #{latest_release} && #{php_bin} #{symfony_console} doctrine:cache:clear-query --env=#{symfony_env_prod}'"
       end
 
       desc "Clear result cache for a entity manager."
       task :clear_result do
-        run "cd #{latest_release} && #{php_bin} #{symfony_console} doctrine:cache:clear-result --env=#{symfony_env_prod}"
+        try_sudo "sh -c 'cd #{latest_release} && #{php_bin} #{symfony_console} doctrine:cache:clear-result --env=#{symfony_env_prod}'"
       end
     end
 
     namespace :database do
       desc "Create the configured databases."
       task :create do
-        run "cd #{latest_release} && #{php_bin} #{symfony_console} doctrine:database:create --env=#{symfony_env_prod}"
+        try_sudo "sh -c 'cd #{latest_release} && #{php_bin} #{symfony_console} doctrine:database:create --env=#{symfony_env_prod}'"
       end
 
       desc "Drop the configured databases."
       task :drop do
-        run "cd #{latest_release} && #{php_bin} #{symfony_console} doctrine:database:drop --env=#{symfony_env_prod}"
+        try_sudo "sh -c 'cd #{latest_release} && #{php_bin} #{symfony_console} doctrine:database:drop --env=#{symfony_env_prod}'"
       end
     end
 
     namespace :generate do
       desc "Generates proxy classes for entity classes."
       task :hydrators do
-        run "cd #{latest_release} && #{php_bin} #{symfony_console} doctrine:generate:proxies --env=#{symfony_env_prod}"
+        try_sudo "sh -c 'cd #{latest_release} && #{php_bin} #{symfony_console} doctrine:generate:proxies --env=#{symfony_env_prod}'"
       end
 
       desc "Generate repository classes from your mapping information."
       task :hydrators do
-        run "cd #{latest_release} && #{php_bin} #{symfony_console} doctrine:generate:repositories --env=#{symfony_env_prod}"
+        try_sudo "sh -c 'cd #{latest_release} && #{php_bin} #{symfony_console} doctrine:generate:repositories --env=#{symfony_env_prod}'"
       end
     end
 
     namespace :schema do
       desc "Processes the schema and either create it directly on EntityManager Storage Connection or generate the SQL output."
       task :create do
-        run "cd #{latest_release} && #{php_bin} #{symfony_console} doctrine:schema:create --env=#{symfony_env_prod}"
+        try_sudo "sh -c 'cd #{latest_release} && #{php_bin} #{symfony_console} doctrine:schema:create --env=#{symfony_env_prod}'"
       end
 
       desc "Drop the complete database schema of EntityManager Storage Connection or generate the corresponding SQL output."
       task :drop do
-        run "cd #{latest_release} && #{php_bin} #{symfony_console} doctrine:schema:drop --env=#{symfony_env_prod}"
+        try_sudo "sh -c 'cd #{latest_release} && #{php_bin} #{symfony_console} doctrine:schema:drop --env=#{symfony_env_prod}'"
       end
     end
 
     namespace :migrations do
       desc "Execute a migration to a specified version or the latest available version."
       task :migrate do
-        run "cd #{latest_release} && #{php_bin} #{symfony_console} doctrine:migrations:migrate --env=#{symfony_env_prod}"
+        try_sudo "sh -c 'cd #{latest_release} && #{php_bin} #{symfony_console} doctrine:migrations:migrate --env=#{symfony_env_prod}'"
       end
 
       desc "View the status of a set of migrations."
       task :status do
-        run "cd #{latest_release} && #{php_bin} #{symfony_console} doctrine:migrations:status --env=#{symfony_env_prod}"
+        try_sudo "sh -c 'cd #{latest_release} && #{php_bin} #{symfony_console} doctrine:migrations:status --env=#{symfony_env_prod}'"
       end
     end
 
@@ -243,29 +244,29 @@ namespace :symfony do
       namespace :generate do
         desc "Generates hydrator classes for document classes."
         task :hydrators do
-          run "cd #{latest_release} && #{php_bin} #{symfony_console} doctrine:mongodb:generate:hydrators --env=#{symfony_env_prod}"
+          try_sudo "sh -c 'cd #{latest_release} && #{php_bin} #{symfony_console} doctrine:mongodb:generate:hydrators --env=#{symfony_env_prod}'"
         end
 
         desc "Generates proxy classes for document classes."
         task :hydrators do
-          run "cd #{latest_release} && #{php_bin} #{symfony_console} doctrine:mongodb:generate:proxies --env=#{symfony_env_prod}"
+          try_sudo "sh -c 'cd #{latest_release} && #{php_bin} #{symfony_console} doctrine:mongodb:generate:proxies --env=#{symfony_env_prod}'"
         end
 
         desc "Generates repository classes for document classes."
         task :hydrators do
-          run "cd #{latest_release} && #{php_bin} #{symfony_console} doctrine:mongodb:generate:repositories --env=#{symfony_env_prod}"
+          try_sudo "sh -c 'cd #{latest_release} && #{php_bin} #{symfony_console} doctrine:mongodb:generate:repositories --env=#{symfony_env_prod}'"
         end
       end
 
       namespace :schema do
         desc "Allows you to create databases, collections and indexes for your documents."
         task :create do
-          run "cd #{latest_release} && #{php_bin} #{symfony_console} doctrine:mongodb:schema:create --env=#{symfony_env_prod}"
+          try_sudo "sh -c 'cd #{latest_release} && #{php_bin} #{symfony_console} doctrine:mongodb:schema:create --env=#{symfony_env_prod}'"
         end
 
         desc "Allows you to drop databases, collections and indexes for your documents."
         task :drop do
-          run "cd #{latest_release} && #{php_bin} #{symfony_console} doctrine:mongodb:schema:drop --env=#{symfony_env_prod}"
+          try_sudo "sh -c 'cd #{latest_release} && #{php_bin} #{symfony_console} doctrine:mongodb:schema:drop --env=#{symfony_env_prod}'"
         end
       end
     end
@@ -275,29 +276,29 @@ namespace :symfony do
     namespace :database do
       desc "Create the configured databases."
       task :create do
-        run "cd #{latest_release} && #{php_bin} #{symfony_console} propel:database:create --env=#{symfony_env_prod}"
+        try_sudo "sh -c 'cd #{latest_release} && #{php_bin} #{symfony_console} propel:database:create --env=#{symfony_env_prod}'"
       end
 
       desc "Drop the configured databases."
       task :drop do
-        run "cd #{latest_release} && #{php_bin} #{symfony_console} propel:database:drop --env=#{symfony_env_prod}"
+        try_sudo "sh -c 'cd #{latest_release} && #{php_bin} #{symfony_console} propel:database:drop --env=#{symfony_env_prod}'"
       end
     end
 
     namespace :build do
       desc "Build the Model classes."
       task :model do
-        run "cd #{latest_release} && #{php_bin} #{symfony_console} propel:build-model --env=#{symfony_env_prod}"
+        try_sudo "sh -c 'cd #{latest_release} && #{php_bin} #{symfony_console} propel:build-model --env=#{symfony_env_prod}'"
       end
 
       desc "Build SQL statements."
       task :sql do
-        run "cd #{latest_release} && #{php_bin} #{symfony_console} propel:build-sql --env=#{symfony_env_prod}"
+        try_sudo "sh -c 'cd #{latest_release} && #{php_bin} #{symfony_console} propel:build-sql --env=#{symfony_env_prod}'"
       end
 
       desc "Build the Model classes, SQL statements and insert SQL."
       task :all_and_load do
-        run "cd #{latest_release} && #{php_bin} #{symfony_console} propel:build --insert-sql --env=#{symfony_env_prod}"
+        try_sudo "sh -c 'cd #{latest_release} && #{php_bin} #{symfony_console} propel:build --insert-sql --env=#{symfony_env_prod}'"
       end
     end
   end
