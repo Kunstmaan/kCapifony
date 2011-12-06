@@ -42,6 +42,10 @@ set :asset_children,      [web_path + "/css", web_path + "/images", web_path + "
 set :model_manager, "doctrine"
 # Or: `propel`
 
+set :update_schema, false
+set :force_schema, false
+set :do_migrations, false
+
 namespace :deploy do
   desc "Symlink static directories and static files that need to remain between deployments."
   task :share_childs do
@@ -139,7 +143,7 @@ namespace :symfony do
   namespace :assetic do
     desc "Dumps all assets to the filesystem"
     task :dump do
-      try_sudo "sh -c '#{latest_release} && #{php_bin} #{symfony_console} assetic:dump #{web_path} --env=#{symfony_env_prod} --no-debug'"
+      try_sudo "sh -c 'cd #{latest_release} && #{php_bin} #{symfony_console} assetic:dump #{web_path} --env=#{symfony_env_prod} --no-debug'"
     end
   end
 
@@ -156,7 +160,7 @@ namespace :symfony do
 
     desc "Runs the bin/vendors script to upgrade the vendors"
     task :upgrade do
-      try_sudo "sh -c '#{latest_release} && #{php_bin} bin/vendors update'"
+      try_sudo "sh -c 'cd #{latest_release} && #{php_bin} bin/vendors update'"
     end
   end
 
@@ -219,19 +223,27 @@ namespace :symfony do
     namespace :schema do
       desc "Processes the schema and either create it directly on EntityManager Storage Connection or generate the SQL output."
       task :create do
-        try_sudo "sh -c 'cd #{latest_release} && #{php_bin} #{symfony_console} doctrine:schema:create --env=#{symfony_env_prod}'"
+        force = force_schema ? " --force": ""
+        try_sudo "sh -c 'cd #{latest_release} && #{php_bin} #{symfony_console} doctrine:schema:create --env=#{symfony_env_prod} #{force}'"
       end
 
       desc "Drop the complete database schema of EntityManager Storage Connection or generate the corresponding SQL output."
       task :drop do
-        try_sudo "sh -c 'cd #{latest_release} && #{php_bin} #{symfony_console} doctrine:schema:drop --env=#{symfony_env_prod}'"
+        force = force_schema ? " --force": ""
+        try_sudo "sh -c 'cd #{latest_release} && #{php_bin} #{symfony_console} doctrine:schema:drop --env=#{symfony_env_prod} #{force}'"
+      end
+      
+      desc "Drop the complete database schema of EntityManager Storage Connection or generate the corresponding SQL output."
+      task :update do
+        force = force_schema ? " --force": ""
+        try_sudo "sh -c 'cd #{latest_release} && #{php_bin} #{symfony_console} doctrine:schema:update --env=#{symfony_env_prod} #{force}'"
       end
     end
 
     namespace :migrations do
       desc "Execute a migration to a specified version or the latest available version."
       task :migrate do
-        try_sudo "sh -c 'cd #{latest_release} && #{php_bin} #{symfony_console} doctrine:migrations:migrate --env=#{symfony_env_prod}'"
+        try_sudo "sh -c 'cd #{latest_release} && #{php_bin} #{symfony_console} doctrine:migrations:migrate --env=#{symfony_env_prod} --no-interaction'"
       end
 
       desc "View the status of a set of migrations."
@@ -317,9 +329,19 @@ after "deploy:finalize_update" do
     end
   end
   
+  if update_schema
+    symfony.doctrine.schema.update if model_manager == "doctrine" # Update the schema
+  end
+  
+  if do_migrations
+    symfony.doctrine.migrations.migrate if model_manager == "doctrine"
+  end
+  
   if assets_install
     symfony.assets.install  # 2. Publish bundle assets
   end
+  
+  symfony.cache.clear # Clear the cache because a new deploy has been done
 
   if cache_warmup
     symfony.cache.warmup    # 3. Warmup clean cache
