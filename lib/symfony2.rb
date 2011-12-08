@@ -45,6 +45,7 @@ set :model_manager, "doctrine"
 set :update_schema, false
 set :force_schema, false
 set :do_migrations, false
+set :load_fixtures, false
 
 namespace :deploy do
   desc "Symlink static directories and static files that need to remain between deployments."
@@ -195,6 +196,14 @@ namespace :symfony do
         try_sudo "sh -c 'cd #{latest_release} && #{php_bin} #{symfony_console} doctrine:cache:clear-result --env=#{symfony_env_prod}'"
       end
     end
+    
+    namespace :fixtures do
+      
+      desc "Load data fixtures to your database."
+      task :load_data do
+        try_sudo "sh -c 'cd #{latest_release} && #{php_bin} #{symfony_console} doctrine:fixtures:load --env=#{symfony_env_prod}'"
+      end
+    end
 
     namespace :database do
       desc "Create the configured databases."
@@ -335,6 +344,10 @@ after "deploy:finalize_update" do
   
   if do_migrations
     symfony.doctrine.migrations.migrate if model_manager == "doctrine"
+  end
+  
+  if load_fixtures
+    symfony.doctrine.fixtures.load_data if model_manager == "doctrine"
   end
   
   if assets_install
