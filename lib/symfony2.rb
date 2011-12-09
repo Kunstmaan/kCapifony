@@ -338,12 +338,12 @@ after "deploy:finalize_update" do
     end
   end
   
-  if update_schema
-    symfony.doctrine.schema.update if model_manager == "doctrine" # Update the schema
-  end
-  
   if do_migrations
     symfony.doctrine.migrations.migrate if model_manager == "doctrine"
+  end
+  
+  if update_schema
+    symfony.doctrine.schema.update if model_manager == "doctrine" # Update the schema
   end
   
   if load_fixtures
