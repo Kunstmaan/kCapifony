@@ -46,6 +46,7 @@ set :update_schema, false
 set :force_schema, false
 set :do_migrations, false
 set :load_fixtures, false
+set :setfacl, false
 
 namespace :deploy do
   desc "Symlink static directories and static files that need to remain between deployments."
@@ -74,6 +75,12 @@ namespace :deploy do
     try_sudo "mkdir -p #{latest_release}/#{cache_path}"
     try_sudo "chmod -R 0777 #{latest_release}/#{cache_path}"
     try_sudo "chmod -R g+w #{latest_release}/#{cache_path}"
+    
+    if fetch(:setfacl, false)
+      try_sudo "setfacl -R -m d:group::rx,d:other::000,d:group:admin:rwx,group:admin:rwx #{latest_release}/#{cache_path}"
+      apache_runner = fetch(:apache_runner, "www-data")
+      try_sudo "sh -c 'if [ -d #{latest_release}/#{web_path} ] ; then setfacl -R -m d:group::r,d:other::000,d:user:#{apache_runner}:rx,d:group:admin:rwx,d:user:#{apache_runner}:rx,group:admin:rwx #{latest_release}/#{web_path}; fi'"
+    end
 
     share_childs
 
