@@ -1,156 +1,39 @@
-Deploying symfony Applications with Capistrano
-==============================================
+# Capifony
 
-Capistrano is an open source tool for running scripts on multiple servers. It’s primary use is for easily deploying applications. While it was built specifically for deploying Rails apps, it’s pretty simple to customize it to deploy other types of applications. We’ve been working on creating a deployment “recipe” to work with symfony applications to make our job a lot easier.
+This is a forked version of the original [Capifony][capifony] which makes it work with the server setup at [Kunstmaan][kunstmaan]. You can't install this using the normal gem install capifony command, you need to download the gem first and install the downloaded gem. The following things are changed:
 
-## Prerequisites ##
+* Every command is using try_sudo in stead of the regular run command. This way we can define the admin_runner in the [Capistrano][capistrano] deployment config and every [Capifony][capifony] command will be ran as this user.
+* Added some extra commands:
+ * load:fixtures
+ * schema:update
+* Changed the flow after deploy finalize update a bit.
 
-- Symfony 1.4+ OR Symfony2
-- Must have SSH access to the server you are deploying to.
-- Must have Ruby and RubyGems installed on your machine (not required for deployment server)’
+# Prerequisites
 
-## Installing Capifony ##
+* SSH access to the server you are deploying to
+* Must have a working [Ruby][ruby] and [RubyGems][rubygems] installed on your local machine
+ * When you still need to install [Ruby][ruby], take a look at [Ruby Version Manager][rvm], which makes installing ruby super easy!
 
-### Through RubyGems.org ###
+# Installing [Capifony][capifony]
 
-	sudo gem install capifony
+* Download the Gem file from the [downloads page on Github](https://github.com/Kunstmaan/capifony/downloads).
+* Install the Gem
 
-### Through GitHub ###
+```bash
+gem install capifony-2.1.3.gem
+```
 
-	git clone git://github.com/everzet/capifony.git
-	cd capifony
-	gem build capifony.gemspec
-	sudo gem install capifony-{version}.gem
+# Configuring your project
 
-## Setup your project to use Capifony ##
+```bash
+cd to/your/project/path
+capifony .
+```
 
-CD to your project directory & run:
-
-	capifony .
-
-This will create `Capfile` in your project root & `deploy.rb` config file in `config` (for symfony)
-and `app/config` (for Symfony2) directory
-
-Fill up your `config/deploy.rb` with your server connection data
-
-## Server Setup ##
-
-Now, you can start the deployment process! To get your server setup with the file structure that Capistrano expects, you can run:
-
-	cap deploy:setup
-
-This command will create the following folder structure on your server:
-
-	`-- /var/www/demo.everzet.com
-	  |-- current → /var/www/demo.everzet.com/releases/20100512131539
-	  |-- releases
-	    |-- 20100512131539
-	    |-- 20100509150741
-	    `-- 20100509145325
-	  `-- shared
-	    |-- log
-	    |-- config
-	      `-- databases.yml
-	    `-- web
-	      `-- uploads
-
-The folders in the releases directory will be the actual deployed code, timestamped. Capistrano symlinks your log & web/uploads directories from your app to the directories in the shared folder so that it doesn’t get erased when you deploy a new version of your code.
-
-To deploy your application, simply run:
-
-	cap deploy
-
-## Deployment ##
-
-To specify the username/password to use over SSH, add the following configuration to your `config/deploy.rb` file:
-
-    set :user, 'username'
-    set :password, 'password'
-
-To configure database on production environment, run:
-
-	cap symfony:configure:database
-
-To deploy your application for the first time, you can run:
-
-	cap deploy:cold
-
-This will deploy your application, configures databases.yml (will ask you about DSN, user, pass), create the db, models, forms, filters, and run all of your migrations.
-
-Now, whenever you need to deploy a new version of your code, just run:
-
-	cap deploy
-
-## Databases ##
-
-If you need to dump remote database & download this dump to local `backups/` folder, run:
-
-	cap database:dump:remote
-
-If you need to dump local database & put this dump to local `backups/` folder, run:
-
-	cap database:dump:local
-
-If you need to dump remote database & populate this dump on local machine, run:
-
-	cap database:move:to_local
-
-If you need to dump local database & populate this dump on remote server, run:
-
-	cap database:move:to_remote
-
-## Shared folders ##
-
-If you need to download some shared folders from remote server, run:
-
-	cap shared:{databases OR log OR uploads]:to_local
-
-If you need to upload some shared folders to remote server, run:
-
-	cap shared:{databases OR log OR uploads]:to_remote
-
-## Host Permissions ##
-
-If you are not allowed sudo ability on your host you can add the following configuration to your `config/deploy.rb` file:
-
-    set :use_sudo, false
-    
-If your host complains about the entire project being group-writable you can add the following configuration to your `config/deploy.rb` file:
-
-    set :group_writable, false
-
-## Git Specific Options ##
-
-If you are using Git submoduleis you'll want to add the following to your `config/deploy.rb` file or the submodule files won't be brought down with your project:
-
-    set :git_enable_submodules, 1
-
-## Other tasks ##
-
-If you need to deploy and run your migrations you can call:
-
-	cap deploy:migrations
-
-We’ve also added a custom task to run your test suite on the production server. You can invoke this by calling:
-
-	cap deploy:tests:all
-
-This will deploy the application, rebuild the test database, then run all of the tests.
-
-Also, you have command to run your custom symfony tasks:
-
-	cap symfony
-
-If you want to see all of the Capistrano tasks available, you can run:
-
-	cap -T
-
-We’ve been using this setup for a little while now, and it’s saved us a ton of time when we need to push changes for a site to the production server.
-
-## Contributors ##
-
-* everzet (owner): [http://github.com/everzet](http://github.com/everzet)
-* Arlo (contributor): [http://github.com/arlo](http://github.com/arlo)
-* Xavier Gorse (contributor): [http://github.com/xgorse](http://github.com/xgorse)
-* Travis Roberts (creator of improved version): [http://blog.centresource.com/author/troberts/](http://blog.centresource.com/author/troberts/)
-* Brent Shaffer (contributor): [http://github.com/bshaffer](http://github.com/bshaffer)
+[capistrano]: https://github.com/capistrano/capistrano "Capistrano"
+[ruby]: http://www.ruby-lang.org/ "Ruby"
+[rubygems]: http://rubygems.org/ "RubyGems"
+[rvm]: http://beginrescueend.com/ "Ruby Version Manager"
+[symfony]: http://symfony.com/ "Symfony"
+[capifony]: https://github.com/everzet/capifony "Capifony"
+[kunstmaan]: http://www.kunstmaan.be "Kunstmaan"
