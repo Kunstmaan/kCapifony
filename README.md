@@ -1,6 +1,7 @@
 # Capifony
 
-This is a forked version of the original [Capifony][capifony] which makes it work with the server setup at [Kunstmaan][kunstmaan]. You can't install this using the normal gem install capifony command, you need to download the gem first and install the downloaded gem. The following things are changed:
+This is a forked version of the original [Capifony][capifony] which makes it work with the server setup at [Kunstmaan][kunstmaan]. You can install this using the gem install kCapifony command.
+The following things are changed:
 
 * Every command is using try_sudo in stead of the regular run command. This way we can define the admin_runner in the [Capistrano][capistrano] deployment config and every [Capifony][capifony] command will be ran as this user.
 * Added some extra commands:
