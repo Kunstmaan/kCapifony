@@ -338,6 +338,9 @@ after "deploy:finalize_update" do
     # share the children first (to get the vendor symlink)
     deploy.share_childs
     vendors_mode.chomp # To remove trailing whiteline
+
+    try_sudo "sh -c \"cd #{latest_release} && sed -i 's/git@github.com:/https:\\/\\/github.com\\//g' deps\""
+    
     case vendors_mode
      when "upgrade" then symfony.vendors.upgrade
      when "install" then symfony.vendors.install
