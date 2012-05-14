@@ -158,16 +158,19 @@ namespace :symfony do
   namespace :vendors do
     desc "Runs the bin/vendors script to install the vendors (fast if already installed)"
     task :install do
+      try_sudo "sh -c \"cd #{latest_release} && sed -i 's/git@github.com:/https:\\/\\/github.com\\//g' deps\""
       try_sudo "sh -c 'cd #{latest_release} && #{php_bin} bin/vendors install'"
     end
 
     desc "Runs the bin/vendors script to reinstall the vendors"
     task :reinstall do
+      try_sudo "sh -c \"cd #{latest_release} && sed -i 's/git@github.com:/https:\\/\\/github.com\\//g' deps\""
       try_sudo "sh -c 'cd #{latest_release} && #{php_bin} bin/vendors install --reinstall'"
     end
 
     desc "Runs the bin/vendors script to upgrade the vendors"
     task :upgrade do
+      try_sudo "sh -c \"cd #{latest_release} && sed -i 's/git@github.com:/https:\\/\\/github.com\\//g' deps\""
       try_sudo "sh -c 'cd #{latest_release} && #{php_bin} bin/vendors update'"
     end
   end
@@ -339,8 +342,6 @@ after "deploy:finalize_update" do
     deploy.share_childs
     vendors_mode.chomp # To remove trailing whiteline
 
-    try_sudo "sh -c \"cd #{latest_release} && sed -i 's/git@github.com:/https:\\/\\/github.com\\//g' deps\""
-    
     case vendors_mode
      when "upgrade" then symfony.vendors.upgrade
      when "install" then symfony.vendors.install
