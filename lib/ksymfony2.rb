@@ -158,19 +158,19 @@ namespace :symfony do
   namespace :vendors do
     desc "Runs the bin/vendors script to install the vendors (fast if already installed)"
     task :install do
-      try_sudo "sh -c \"cd #{latest_release} && sed -i 's/git@github.com:/https:\\/\\/github.com\\//g' deps\""
+      run "chmod 777 -R `dirname $SSH_AUTH_SOCK`"
       try_sudo "sh -c 'cd #{latest_release} && #{php_bin} bin/vendors install'"
     end
 
     desc "Runs the bin/vendors script to reinstall the vendors"
     task :reinstall do
-      try_sudo "sh -c \"cd #{latest_release} && sed -i 's/git@github.com:/https:\\/\\/github.com\\//g' deps\""
+      run "chmod 777 -R `dirname $SSH_AUTH_SOCK`"
       try_sudo "sh -c 'cd #{latest_release} && #{php_bin} bin/vendors install --reinstall'"
     end
 
     desc "Runs the bin/vendors script to upgrade the vendors"
     task :upgrade do
-      try_sudo "sh -c \"cd #{latest_release} && sed -i 's/git@github.com:/https:\\/\\/github.com\\//g' deps\""
+      run "chmod 777 -R `dirname $SSH_AUTH_SOCK`"
       try_sudo "sh -c 'cd #{latest_release} && #{php_bin} bin/vendors update'"
     end
   end
