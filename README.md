@@ -1,40 +1,52 @@
-# Capifony
+Deploying symfony Applications with Capistrano
+==============================================
 
-This is a forked version of the original [Capifony][capifony] which makes it work with the server setup at [Kunstmaan][kunstmaan]. You can install this using the gem install kCapifony command.
-The following things are changed:
+Capistrano is an open source tool for running scripts on multiple servers.
+Its primary use is for easily deploying applications. While it was built
+specifically for deploying Rails apps, it’s pretty simple to customize it
+to deploy other types of applications. We’ve been working on creating a
+deployment “recipe” to work with symfony applications to make our job a
+lot easier.
 
-* Every command is using try_sudo in stead of the regular run command. This way we can define the admin_runner in the [Capistrano][capistrano] deployment config and every [Capifony][capifony] command will be ran as this user.
-* Added some extra commands:
- * load:fixtures
- * schema:update
-* Changed the flow after deploy finalize update a bit.
 
-# Prerequisites
+## Prerequisites ##
 
-* SSH access to the server you are deploying to
-* Must have a working [Ruby][ruby] and [RubyGems][rubygems] installed on your local machine
- * When you still need to install [Ruby][ruby], take a look at [Ruby Version Manager][rvm], which makes installing ruby super easy!
+- Symfony 1.4+ OR Symfony2
+- Must have SSH access to the server you are deploying to.
+- Must have Ruby and RubyGems installed on your machine (not required
+  for deployment server)
 
-# Installing [Capifony][capifony]
 
-* Download the Gem file from the [downloads page on Github](https://github.com/Kunstmaan/capifony/downloads).
-* Install the Gem
+## Installing Capifony ##
 
-```bash
-gem install capifony-2.1.3.gem
-```
+### Through RubyGems.org ###
 
-# Configuring your project
+	sudo gem install capifony
 
-```bash
-cd to/your/project/path
-capifony .
-```
+### Through GitHub ###
 
-[capistrano]: https://github.com/capistrano/capistrano "Capistrano"
-[ruby]: http://www.ruby-lang.org/ "Ruby"
-[rubygems]: http://rubygems.org/ "RubyGems"
-[rvm]: http://beginrescueend.com/ "Ruby Version Manager"
-[symfony]: http://symfony.com/ "Symfony"
-[capifony]: https://github.com/everzet/capifony "Capifony"
-[kunstmaan]: http://www.kunstmaan.be "Kunstmaan"
+	git clone git://github.com/everzet/capifony.git
+	cd capifony
+	gem build capifony.gemspec
+	sudo gem install capifony-{version}.gem
+
+
+## What's next? ##
+
+Read the [capifony documentation](http://capifony.org/)
+
+
+## Contributors ##
+
+* everzet (owner): [http://github.com/everzet](http://github.com/everzet)
+* Arlo Borras (contributor): [http://github.com/arlo](http://github.com/arlo)
+* Xavier Gorse (contributor): [http://github.com/xgorse](http://github.com/xgorse)
+* Travis Roberts (creator of improved version): [http://blog.centresource.com/author/troberts/](http://blog.centresource.com/author/troberts/)
+* Brent Shaffer (contributor): [http://github.com/bshaffer](http://github.com/bshaffer)
+* William Durand (maintainer): [http://github.com/willdurand](http://github.com/willdurand)
+* And, [All contributors](https://github.com/everzet/capifony/contributors)
+
+
+## License ##
+
+Capifony is released under the MIT License. See the bundled LICENSE file for details.
