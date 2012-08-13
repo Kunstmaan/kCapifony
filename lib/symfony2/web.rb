@@ -22,7 +22,7 @@ namespace :deploy do
     DESC
     task :disable, :roles => :web, :except => { :no_release => true } do
       require 'erb'
-      on_rollback { run "rm #{latest_release}/#{web_path}/#{maintenance_basename}.html" }
+      on_rollback { try_sudo "rm #{latest_release}/#{web_path}/#{maintenance_basename}.html" }
 
       warn <<-EOHTACCESS
 
@@ -63,7 +63,7 @@ namespace :deploy do
       web-accessible again.
     DESC
     task :enable, :roles => :web, :except => { :no_release => true } do
-      run "rm #{latest_release}/#{web_path}/#{maintenance_basename}.html"
+      try_sudo "rm #{latest_release}/#{web_path}/#{maintenance_basename}.html"
     end
   end
 end
