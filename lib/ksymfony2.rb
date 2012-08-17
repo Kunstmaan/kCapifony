@@ -1,381 +1,159 @@
 load Gem.find_files('kcapifony.rb').last.to_s
+load_paths.push File.expand_path('../', __FILE__)
+
+load 'symfony2/output'
+load 'symfony2/database'
+load 'symfony2/deploy'
+load 'symfony2/doctrine'
+load 'symfony2/propel'
+load 'symfony2/symfony'
+load 'symfony2/web'
+
+require 'yaml'
 
 # Symfony application path
-set :app_path,            "app"
+set :app_path,              "app"
 
 # Symfony web path
-set :web_path,            "web"
+set :web_path,              "web"
 
 # Symfony console bin
-set :symfony_console,     app_path + "/console"
+set :symfony_console,       app_path + "/console"
 
 # Symfony log path
-set :log_path,            app_path + "/logs"
+set :log_path,              app_path + "/logs"
 
 # Symfony cache path
-set :cache_path,          app_path + "/cache"
+set :cache_path,            app_path + "/cache"
 
-# Use AsseticBundle
-set :dump_assetic_assets, false
+# Symfony bin vendors
+set :symfony_vendors,       "bin/vendors"
 
-# Whether to run the bin/vendors script to update vendors
-set :update_vendors, false
+# Symfony build_bootstrap script
+set :build_bootstrap,       "bin/build_bootstrap"
+
+# Whether to use composer to install vendors.
+# If set to false, it will use the bin/vendors script
+set :use_composer,          false
+
+# Whether to update vendors using the configured dependency manager (composer or bin/vendors)
+set :update_vendors,        false
 
 # run bin/vendors script in mode (upgrade, install (faster if shared /vendor folder) or reinstall)
-set :vendors_mode, "reinstall"
+set :vendors_mode,          "reinstall"
 
-# Whether to run cache warmup 
-set :cache_warmup, true 
+# Whether to run cache warmup
+set :cache_warmup,          true
+
+# Use AsseticBundle
+set :dump_assetic_assets,   false
 
 # Assets install
-set :assets_install, true 
+set :assets_install,        true
+set :assets_symlinks,       false
+set :assets_relative,       false
 
-# Dirs that need to remain the same between deploys (shared dirs)
-set :shared_children,     [log_path, web_path + "/uploads"]
+# Whether to update `assets_version` in `config.yml`
+set :update_assets_version, false
 
 # Files that need to remain the same between deploys
-set :shared_files,        false
+set :shared_files,          false
+
+# Dirs that need to remain the same between deploys (shared dirs)
+set :shared_children,       [log_path, web_path + "/uploads"]
 
 # Asset folders (that need to be timestamped)
-set :asset_children,      [web_path + "/css", web_path + "/images", web_path + "/js"]
+set :asset_children,        [web_path + "/css", web_path + "/images", web_path + "/js"]
 
-set :model_manager, "doctrine"
-# Or: `propel`
+# Dirs that need to be writable by the HTTP Server (i.e. cache, log dirs)
+set :writable_dirs,         [log_path, cache_path]
 
-set :update_schema, false
-set :force_schema, false
-set :do_migrations, false
-set :load_fixtures, false
-set :setfacl, false
+# Name used by the Web Server (i.e. www-data for Apache)
+set :webserver_user,        "www-data"
 
-namespace :deploy do
-  desc "Symlink static directories and static files that need to remain between deployments."
-  task :share_childs do
-    if shared_children
-      shared_children.each do |link|
-        try_sudo "mkdir -p #{shared_path}/#{link}"
-        try_sudo "sh -c 'if [ -d #{release_path}/#{link} ] ; then rm -rf #{release_path}/#{link}; fi'"
-        try_sudo "ln -nfs #{shared_path}/#{link} #{release_path}/#{link}"
-      end
-    end
-    if shared_files
-      shared_files.each do |link|
-        link_dir = File.dirname("#{shared_path}/#{link}")
-        try_sudo "mkdir -p #{link_dir}"
-        try_sudo "touch #{shared_path}/#{link}"
-        try_sudo "ln -nfs #{shared_path}/#{link} #{release_path}/#{link}"
-      end
-    end
-  end
+# Method used to set permissions (:chmod, :acl, or :chown)
+set :permission_method,     false
 
-  desc "Update latest release source path."
-  task :finalize_update, :except => { :no_release => true } do
-    try_sudo "chmod -R g+w #{latest_release}" if fetch(:group_writable, true)
-    try_sudo "sh -c 'if [ -d #{latest_release}/#{cache_path} ] ; then rm -rf #{latest_release}/#{cache_path}; fi'"
-    try_sudo "mkdir -p #{latest_release}/#{cache_path}"
-    try_sudo "chmod -R 0777 #{latest_release}/#{cache_path}"
-    try_sudo "chmod -R g+w #{latest_release}/#{cache_path}"
-    
-    if fetch(:setfacl, false)
-      try_sudo "setfacl -R -m d:group::rx,d:other::000,d:group:admin:rwx,group:admin:rwx #{latest_release}/#{cache_path}"
-      apache_runner = fetch(:apache_runner, "www-data")
-      try_sudo "sh -c 'if [ -d #{latest_release}/#{web_path} ] ; then setfacl -R -m d:group::r,d:other::000,d:user:#{apache_runner}:rx,d:group:admin:rwx,d:user:#{apache_runner}:rx,group:admin:rwx #{latest_release}/#{web_path}; fi'"
-    end
+# Model manager: (doctrine, propel)
+set :model_manager,         "doctrine"
 
-    share_childs
+# Symfony2 version
+set(:symfony_version)       { guess_symfony_version }
 
-    if fetch(:normalize_asset_timestamps, true)
-      stamp = Time.now.utc.strftime("%Y%m%d%H%M.%S")
-      asset_paths = asset_children.map { |p| "#{latest_release}/#{p}" }.join(" ")
-      try_sudo "find #{asset_paths} -exec touch -t #{stamp} {} ';'; true", :env => { "TZ" => "UTC" }
-    end
-  end
+# If set to false, it will never ask for confirmations (migrations task for instance)
+# Use it carefully, really!
+set :interactive_mode,      true
 
-  desc "Deploy the application and start it."
-  task :cold do
-    update
-    start
-  end
+def load_database_config(data, env)
+  parameters = YAML::load(data)
 
-  desc "Deploy the application and run the test suite."
-  task :testall do
-    update_code
-    symlink
-    try_sudo "sh -c 'cd #{latest_release} && phpunit -c #{app_path} src'"
-  end
-
-  desc "Migrate Symfony2 Doctrine ORM database."
-  task :migrate do
-    currentVersion = nil
-    try_sudo "sh -c 'cd #{latest_release} && #{php_bin} #{symfony_console} doctrine:migrations:status --env=#{symfony_env_prod}'" do |ch, stream, out|
-      if stream == :out and out =~ /Current Version:[^$]+\(([0-9]+)\)/
-        currentVersion = Regexp.last_match(1)
-      end
-      if stream == :out and out =~ /Current Version:\s*0\s*$/
-        currentVersion = 0
-      end
-    end
-
-    if currentVersion == nil
-      raise "Could not find current database migration version"
-    end
-    puts "Current database version: #{currentVersion}"
-
-    on_rollback {
-      if Capistrano::CLI.ui.agree("Do you really want to migrate #{symfony_env_prod}'s database back to version #{currentVersion}? (y/N)")
-        try_sudo "sh -c 'cd #{latest_release} && #{php_bin} #{symfony_console} doctrine:migrations:migrate #{currentVersion} --env=#{symfony_env_prod} --no-interaction'"
-      end
-    }
-
-    if Capistrano::CLI.ui.agree("Do you really want to migrate #{symfony_env_prod}'s database? (y/N)")
-      try_sudo "sh -c 'cd #{latest_release} && #{php_bin} #{symfony_console} doctrine:migrations:migrate --env=#{symfony_env_prod} --no-interaction'"
-    end
-  end
+  parameters['parameters']
 end
 
-namespace :symfony do
-  desc "Runs custom symfony task"
-  task :default do
-    prompt_with_default(:task_arguments, "cache:clear")
-
-    stream "cd #{latest_release} && #{php_bin} #{symfony_console} #{task_arguments} --env=#{symfony_env_prod}"
-  end
-
-  namespace :assets do
-    desc "Install bundle's assets"
-    task :install do
-      try_sudo "sh -c 'cd #{latest_release} && #{php_bin} #{symfony_console} assets:install #{web_path} --env=#{symfony_env_prod}'"
-    end
-  end
-
-  namespace :assetic do
-    desc "Dumps all assets to the filesystem"
-    task :dump do
-      try_sudo "sh -c 'cd #{latest_release} && #{php_bin} #{symfony_console} assetic:dump #{web_path} --env=#{symfony_env_prod} --no-debug'"
-    end
-  end
-
-  namespace :vendors do
-    desc "Runs the bin/vendors script to install the vendors (fast if already installed)"
-    task :install do
-      run "chmod 777 -R `dirname $SSH_AUTH_SOCK`"
-      try_sudo "sh -c 'cd #{latest_release} && #{php_bin} bin/vendors install'"
-    end
-
-    desc "Runs the bin/vendors script to reinstall the vendors"
-    task :reinstall do
-      run "chmod 777 -R `dirname $SSH_AUTH_SOCK`"
-      try_sudo "sh -c 'cd #{latest_release} && #{php_bin} bin/vendors install --reinstall'"
-    end
-
-    desc "Runs the bin/vendors script to upgrade the vendors"
-    task :upgrade do
-      run "chmod 777 -R `dirname $SSH_AUTH_SOCK`"
-      try_sudo "sh -c 'cd #{latest_release} && #{php_bin} bin/vendors update'"
-    end
-  end
-
-  namespace :cache do
-    desc "Clears project cache."
-    task :clear do
-      try_sudo "sh -c 'cd #{latest_release} && #{php_bin} #{symfony_console} cache:clear --env=#{symfony_env_prod}'"
-      try_sudo "chmod -R g+w #{latest_release}/#{cache_path}"
-    end
-
-    desc "Warms up an empty cache."
-    task :warmup do
-      try_sudo "sh -c 'cd #{latest_release} && #{php_bin} #{symfony_console} cache:warmup --env=#{symfony_env_prod}'"
-      try_sudo "chmod -R g+w #{latest_release}/#{cache_path}"
-    end
-  end
-
-  namespace :doctrine do
-    namespace :cache do
-      desc "Clear all metadata cache for a entity manager."
-      task :clear_metadata do
-        try_sudo "sh -c 'cd #{latest_release} && #{php_bin} #{symfony_console} doctrine:cache:clear-metadata --env=#{symfony_env_prod}'"
-      end
-
-      desc "Clear all query cache for a entity manager."
-      task :clear_query do
-        try_sudo "sh -c 'cd #{latest_release} && #{php_bin} #{symfony_console} doctrine:cache:clear-query --env=#{symfony_env_prod}'"
-      end
-
-      desc "Clear result cache for a entity manager."
-      task :clear_result do
-        try_sudo "sh -c 'cd #{latest_release} && #{php_bin} #{symfony_console} doctrine:cache:clear-result --env=#{symfony_env_prod}'"
-      end
-    end
-    
-    namespace :fixtures do
-      
-      desc "Load data fixtures to your database."
-      task :load_data do
-        try_sudo "sh -c 'cd #{latest_release} && #{php_bin} #{symfony_console} doctrine:fixtures:load --env=#{symfony_env_prod}'"
-      end
-    end
-
-    namespace :database do
-      desc "Create the configured databases."
-      task :create do
-        try_sudo "sh -c 'cd #{latest_release} && #{php_bin} #{symfony_console} doctrine:database:create --env=#{symfony_env_prod}'"
-      end
-
-      desc "Drop the configured databases."
-      task :drop do
-        try_sudo "sh -c 'cd #{latest_release} && #{php_bin} #{symfony_console} doctrine:database:drop --env=#{symfony_env_prod}'"
-      end
-    end
-
-    namespace :generate do
-      desc "Generates proxy classes for entity classes."
-      task :hydrators do
-        try_sudo "sh -c 'cd #{latest_release} && #{php_bin} #{symfony_console} doctrine:generate:proxies --env=#{symfony_env_prod}'"
-      end
-
-      desc "Generate repository classes from your mapping information."
-      task :hydrators do
-        try_sudo "sh -c 'cd #{latest_release} && #{php_bin} #{symfony_console} doctrine:generate:repositories --env=#{symfony_env_prod}'"
-      end
-    end
-
-    namespace :schema do
-      desc "Processes the schema and either create it directly on EntityManager Storage Connection or generate the SQL output."
-      task :create do
-        force = force_schema ? " --force": ""
-        try_sudo "sh -c 'cd #{latest_release} && #{php_bin} #{symfony_console} doctrine:schema:create --env=#{symfony_env_prod} #{force}'"
-      end
-
-      desc "Drop the complete database schema of EntityManager Storage Connection or generate the corresponding SQL output."
-      task :drop do
-        force = force_schema ? " --force": ""
-        try_sudo "sh -c 'cd #{latest_release} && #{php_bin} #{symfony_console} doctrine:schema:drop --env=#{symfony_env_prod} #{force}'"
-      end
-      
-      desc "Drop the complete database schema of EntityManager Storage Connection or generate the corresponding SQL output."
-      task :update do
-        force = force_schema ? " --force": ""
-        try_sudo "sh -c 'cd #{latest_release} && #{php_bin} #{symfony_console} doctrine:schema:update --env=#{symfony_env_prod} #{force}'"
-      end
-    end
-
-    namespace :migrations do
-      desc "Execute a migration to a specified version or the latest available version."
-      task :migrate do
-        try_sudo "sh -c 'cd #{latest_release} && #{php_bin} #{symfony_console} doctrine:migrations:migrate --env=#{symfony_env_prod} --no-interaction'"
-      end
-
-      desc "View the status of a set of migrations."
-      task :status do
-        try_sudo "sh -c 'cd #{latest_release} && #{php_bin} #{symfony_console} doctrine:migrations:status --env=#{symfony_env_prod}'"
-      end
-    end
-
-    namespace :mongodb do
-      namespace :generate do
-        desc "Generates hydrator classes for document classes."
-        task :hydrators do
-          try_sudo "sh -c 'cd #{latest_release} && #{php_bin} #{symfony_console} doctrine:mongodb:generate:hydrators --env=#{symfony_env_prod}'"
-        end
-
-        desc "Generates proxy classes for document classes."
-        task :hydrators do
-          try_sudo "sh -c 'cd #{latest_release} && #{php_bin} #{symfony_console} doctrine:mongodb:generate:proxies --env=#{symfony_env_prod}'"
-        end
-
-        desc "Generates repository classes for document classes."
-        task :hydrators do
-          try_sudo "sh -c 'cd #{latest_release} && #{php_bin} #{symfony_console} doctrine:mongodb:generate:repositories --env=#{symfony_env_prod}'"
-        end
-      end
-
-      namespace :schema do
-        desc "Allows you to create databases, collections and indexes for your documents."
-        task :create do
-          try_sudo "sh -c 'cd #{latest_release} && #{php_bin} #{symfony_console} doctrine:mongodb:schema:create --env=#{symfony_env_prod}'"
-        end
-
-        desc "Allows you to drop databases, collections and indexes for your documents."
-        task :drop do
-          try_sudo "sh -c 'cd #{latest_release} && #{php_bin} #{symfony_console} doctrine:mongodb:schema:drop --env=#{symfony_env_prod}'"
-        end
-      end
-    end
-  end
-
-  namespace :propel do
-    namespace :database do
-      desc "Create the configured databases."
-      task :create do
-        try_sudo "sh -c 'cd #{latest_release} && #{php_bin} #{symfony_console} propel:database:create --env=#{symfony_env_prod}'"
-      end
-
-      desc "Drop the configured databases."
-      task :drop do
-        try_sudo "sh -c 'cd #{latest_release} && #{php_bin} #{symfony_console} propel:database:drop --env=#{symfony_env_prod}'"
-      end
-    end
-
-    namespace :build do
-      desc "Build the Model classes."
-      task :model do
-        try_sudo "sh -c 'cd #{latest_release} && #{php_bin} #{symfony_console} propel:build-model --env=#{symfony_env_prod}'"
-      end
-
-      desc "Build SQL statements."
-      task :sql do
-        try_sudo "sh -c 'cd #{latest_release} && #{php_bin} #{symfony_console} propel:build-sql --env=#{symfony_env_prod}'"
-      end
-
-      desc "Build the Model classes, SQL statements and insert SQL."
-      task :all_and_load do
-        try_sudo "sh -c 'cd #{latest_release} && #{php_bin} #{symfony_console} propel:build --insert-sql --env=#{symfony_env_prod}'"
-      end
-    end
-  end
+def guess_symfony_version
+  capture("cd #{latest_release} && #{php_bin} #{symfony_console} --version |cut -d \" \" -f 3")
 end
 
-# After finalizing update:
+def remote_file_exists?(full_path)
+  'true' == capture("if [ -e #{full_path} ]; then echo 'true'; fi").strip
+end
+
+def remote_command_exists?(command)
+  'true' == capture("type -P #{command} &>/dev/null && echo 'true' || echo 'false'").strip
+end
+
 after "deploy:finalize_update" do
-  if update_vendors
-    # share the children first (to get the vendor symlink)
-    deploy.share_childs
-    vendors_mode.chomp # To remove trailing whiteline
-
-    case vendors_mode
-     when "upgrade" then symfony.vendors.upgrade
-     when "install" then symfony.vendors.install
-     when "reinstall" then symfony.vendors.reinstall
+  if use_composer
+    if update_vendors
+      symfony.composer.update
+    else
+      symfony.composer.install
+    end
+  else
+    if update_vendors
+      vendors_mode.chomp # To remove trailing whiteline
+      case vendors_mode
+        when "upgrade" then symfony.vendors.upgrade
+        when "install" then symfony.vendors.install
+        when "reinstall" then symfony.vendors.reinstall
+      end
     end
   end
-  
-  if do_migrations
-    symfony.doctrine.migrations.migrate if model_manager == "doctrine"
-  end
-  
-  if update_schema
-    symfony.doctrine.schema.update if model_manager == "doctrine" # Update the schema
-  end
-  
-  if load_fixtures
-    symfony.doctrine.fixtures.load_data if model_manager == "doctrine"
-  end
-  
-  if assets_install
-    symfony.assets.install  # 2. Publish bundle assets
-  end
-  
-  symfony.cache.clear # Clear the cache because a new deploy has been done
 
-  if cache_warmup
-    symfony.cache.warmup    # 3. Warmup clean cache
-  end
-
-  if dump_assetic_assets
-    symfony.assetic.dump    # 4. Dump assetic assets
-  end
+  symfony.bootstrap.build
 
   if model_manager == "propel"
     symfony.propel.build.model
   end
+
+  if assets_install
+    symfony.assets.install          # 2. Publish bundle assets
+  end
+
+  if cache_warmup
+    symfony.cache.warmup            # 3. Warmup clean cache
+  end
+
+  if update_assets_version
+    symfony.assets.update_version   # 4. Update `assets_version`
+  end
+
+  if dump_assetic_assets
+    symfony.assetic.dump            # 5. Dump assetic assets
+  end
+end
+
+before "deploy:update_code" do
+  msg = "--> Updating code base with #{deploy_via} strategy"
+
+  if logger.level == Logger::IMPORTANT
+    pretty_errors
+    puts msg
+  else
+    puts msg.green
+  end
+end
+
+after "deploy:create_symlink" do
+  puts "--> Successfully deployed!".green
 end

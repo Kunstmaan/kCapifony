@@ -17,11 +17,8 @@ The following things are changed:
 
 # Installing [Capifony][capifony]
 
-* Download the Gem file from the [downloads page on Github](https://github.com/Kunstmaan/capifony/downloads).
-* Install the Gem
-
 ```bash
-gem install capifony-2.1.3.gem
+gem install kcapifony
 ```
 
 # Configuring your project

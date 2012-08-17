@@ -7,6 +7,8 @@ set :symfony_env_prod,  "prod"
 # PHP binary to execute
 set :php_bin,           "php"
 
+set :remote_tmp_dir,    "/tmp"
+
 def prompt_with_default(var, default, &block)
   set(var) do
     Capistrano::CLI.ui.ask("#{var} [#{default}] : ", &block)
@@ -15,12 +17,45 @@ def prompt_with_default(var, default, &block)
 end
 
 namespace :deploy do
-  desc "Overwrite the start task because symfony doesn't need it."
-  task :start do ; end
+  desc <<-DESC
+    Blank task exists as a hook into which to install your own environment \
+    specific behaviour.
+  DESC
+  task :start, :roles => :app, :except => { :no_release => true } do
+    # Empty Task to overload with your platform specifics
+  end
 
-  desc "Overwrite the restart task because symfony doesn't need it."
-  task :restart do ; end
+  desc <<-DESC
+    Blank task exists as a hook into which to install your own environment \
+    specific behaviour.
+  DESC
+  task :stop, :roles => :app, :except => { :no_release => true } do
+    # Empty Task to overload with your platform specifics
+  end
 
-  desc "Overwrite the stop task because symfony doesn't need it."
-  task :stop do ; end
+  desc <<-DESC
+    Blank task exists as a hook into which to install your own environment \
+    specific behaviour.
+  DESC
+  task :restart, :roles => :app, :except => { :no_release => true } do
+    # Empty Task to overload with your platform specifics
+  end
+
+  desc <<-DESC
+    Prepares one or more servers for deployment. Before you can use any \
+    of the Capistrano deployment tasks with your project, you will need to \
+    make sure all of your servers have been prepared with `cap deploy:setup'. When \
+    you add a new server to your cluster, you can easily run the setup task \
+    on just that server by specifying the HOSTS environment variable:
+
+      $ cap HOSTS=new.server.com deploy:setup
+
+    It is safe to run this task on servers that have already been set up; it \
+    will not destroy any deployed revisions or data.
+  DESC
+  task :setup, :roles => :app, :except => { :no_release => true } do
+    dirs = [deploy_to, releases_path, shared_path]
+    try_sudo "mkdir -p #{dirs.join(' ')}"
+    try_sudo "chmod g+w #{dirs.join(' ')}" if fetch(:group_writable, true)
+  end
 end
