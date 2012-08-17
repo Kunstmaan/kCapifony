@@ -83,8 +83,7 @@ namespace :deploy do
     pretty_print "--> Creating cache directory"
 
     try_sudo "sh -c 'if [ -d #{latest_release}/#{cache_path} ] ; then rm -rf #{latest_release}/#{cache_path}; fi'"
-    try_sudo "mkdir -p #{latest_release}/#{cache_path}"
-    try_sudo "chmod -R 0777 #{latest_release}/#{cache_path}"
+    try_sudo "sh -c 'mkdir -p #{latest_release}/#{cache_path} && chmod -R 0777 #{latest_release}/#{cache_path}'"
     try_sudo "chmod -R g+w #{latest_release}/#{cache_path}"
 
     puts_ok
