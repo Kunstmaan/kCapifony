@@ -1,3 +1,88 @@
+== 2.1.13 / ??? ==
+
+* Fix currentVersion regex always returning nil
+* Improve composer path checking
+* Fix remote_command_exists
+* Fix running doctrine migrations with allocated PTY
+* Update lib/symfony1.rb
+
+== 2.1.12 / August 6, 2012
+
+* Enable options for assets:install
+* Looked for sf1 settings DB file instead of sf2 one
+* Add ability to tail `dev|prod.log`
+* Put remote tmp directory in a variable so that it can be overriden
+
+== 2.1.11 / July 20, 2012
+
+* Fix hard-coded "app" references
+* Fix hard-coded path to "app"
+* Fix set_permissions task. Refs #166
+* Try to fix #166
+* Setting :roles, etc. for each task (Symfony2 only currently)
+* Fix set_permissions task. Refs #166
+* Fix documentation link
+* Fix #163
+* fix elsif synthax
+
+== 2.1.10 / July 16, 2012
+
+* Fix CS
+* Add ownership check before changing permissions
+* Add pretty output
+* Fix normalizing assets
+* Fix build bootstrap
+* Added set_permissions task
+* Fix PR #158
+* fix for remote check of composer.phar, File.exist? only checks local files
+* Fix capifony script
+* Use `--no-scripts` during `composer install/update` to avoid useless/duplicate processing.
+* Fixed database tasks for postgresql
+* Better pretty output if error raised
+* Add task for updating `assets_version` in `config.yml`
+* Avoid the use of try_sudo
+* More `:no_release`...
+* Since `:roles` isn't used in Capifony, these need `:no_release` *at least*.
+* Fixing missing `pretty_print`.
+
+== 2.1.9 / July 3, 2012
+
+* fixed regression
+
+== 2.1.8 / July 2, 2012
+
+* bugfixes
+* fix database tasks to use role :db
+* BC break: capifony now requires Capistrano >= 2.11.0
+* added red color for error messages.
+* added commented lines in the generated deploy.rb file to set verbosity as
+  before.
+* BC break: verbose mode is disabled by default (log level = IMPORTANT), so
+  that it's more readable.
+* added dependency to 'colored'.
+* added human readable messages in deploy related tasks.
+* removed unexistent Doctrine commands
+
+== 2.1.7 / June 21, 2012
+
+* added maintenance page feature for Symfony2, use symfony 1.4 tasks
+  (project:disable, project:enable) to do the same.
+* added `interactive_mode` variable. Allows to avoid the need to confirm
+  task executions, useful for fully automated deployments.
+* fixed propel regression.
+* added new `symfony_version` variable automatically guessed.
+* the `build_bootstrap` script to use is now configurable thanks to the
+  `:build_bootstrap` variable.
+* composer can be used with the `update_vendors` parameter, so that you can
+  update composer dependencies.
+* composer support updated, it downloads the `phar` if not available in the
+  working directory.
+* bugfixes.
+
+== 2.1.6 / April 12, 2012
+
+* bugfixes
+
 == 2.1.3 / September 27, 2011
 
 * propel support for Symfony2 (by @willdurand)
